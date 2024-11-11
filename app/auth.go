@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	sql "github.com/Gianluigi/def-prog-exercises/safesql"
-	"github.com/Gianluigi/def-prog-exercises/safesql/legacyconversions"
 	"io"
 	"log"
 	"net/http"
@@ -51,7 +50,7 @@ func (ah *AuthHandler) IsLogged(r *http.Request) bool {
 }
 
 func (ah *AuthHandler) getUserCount(ctx context.Context) (int, error) {
-	rows, err := ah.db.QueryContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`SELECT COUNT(*) FROM users`))
+	rows, err := ah.db.QueryContext(ctx, sql.New(`SELECT COUNT(*) FROM users`))
 	if err != nil {
 		return 0, err
 	}
@@ -78,7 +77,7 @@ func (ah *AuthHandler) createDefault(ctx context.Context) error {
 	}
 	log.Println("Default users not found, initializing...")
 	for _, u := range defaultUsers {
-		_, err := ah.db.ExecContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`INSERT INTO users(name, password, privileges) VALUES('`+u.Name+`','`+u.password+`','`+u.Privileges+`')`))
+		_, err := ah.db.ExecContext(ctx, sql.New(`INSERT INTO users(name, password, privileges) VALUES(?, ?, ?);`), u.Name, u.password, u.Privileges)
 		if err != nil {
 			return err
 		}
@@ -88,7 +87,7 @@ func (ah *AuthHandler) createDefault(ctx context.Context) error {
 }
 
 func (ah *AuthHandler) initialize(ctx context.Context) error {
-	_, err := ah.db.ExecContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`
+	_, err := ah.db.ExecContext(ctx, sql.New(`
 		CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, password TEXT, privileges TEXT)`))
 	if err != nil {
 		return err
@@ -122,7 +121,7 @@ func (ah *AuthHandler) getUser(r *http.Request) (*user, error) {
 	// BUT PLEASE, PLEASE, PLEASE never rely on client-provided
 	// data to perform auth checks unless it's signed and you validated
 	// the sgnature.
-	rows, err := ah.db.QueryContext(r.Context(), legacyconversions.RiskilyAssumeTrustedSQL(`SELECT * FROM users WHERE id=`+c.Value))
+	rows, err := ah.db.QueryContext(r.Context(), sql.New(`SELECT * FROM users WHERE id=?`), c.Value)
 	if err != nil || !rows.Next() {
 		return nil, err
 	}
@@ -185,7 +184,7 @@ func Auth(ctx context.Context) *AuthHandler {
 	})
 	sm.HandleFunc("POST /auth/", func(w http.ResponseWriter, r *http.Request) {
 		u, pw := r.FormValue("name"), r.FormValue("password")
-		rows, err := db.QueryContext(r.Context(), legacyconversions.RiskilyAssumeTrustedSQL(`SELECT id FROM users WHERE name='`+u+`' and password='`+pw+`'`))
+		rows, err := db.QueryContext(r.Context(), sql.New(`SELECT id FROM users WHERE name= ? and password=?`), u, pw)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())

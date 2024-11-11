@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	sql "github.com/Gianluigi/def-prog-exercises/safesql"
-	"github.com/Gianluigi/def-prog-exercises/safesql/legacyconversions"
 	"io"
 	"log"
 	"net/http"
@@ -38,7 +37,7 @@ func scanNote(rows *sql.Rows) (nt note, err error) {
 }
 
 func (nh *notesHandler) initialize(ctx context.Context) error {
-	must(nh.db.ExecContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT)`)))
+	must(nh.db.ExecContext(ctx, sql.New(`CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT)`)))
 	nts, err := nh.getNotes(ctx)
 	if err != nil {
 		return err
@@ -55,7 +54,7 @@ func (nh *notesHandler) initialize(ctx context.Context) error {
 
 func (nh *notesHandler) getNotes(ctx context.Context) ([]note, error) {
 	// Retrieve notes
-	rows, err := nh.db.QueryContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`SELECT * FROM notes`))
+	rows, err := nh.db.QueryContext(ctx, sql.New(`SELECT * FROM notes`))
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +74,12 @@ func (nh *notesHandler) getNotes(ctx context.Context) ([]note, error) {
 }
 
 func (nh *notesHandler) putNote(ctx context.Context, nt note) error {
-	_, err := nh.db.ExecContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`INSERT INTO notes(title, content) VALUES('`+nt.Title+`', '`+nt.Content+`')`))
+	_, err := nh.db.ExecContext(ctx, sql.New(`INSERT INTO notes(title, content) VALUES(?, ?);`), nt.Title, nt.Content)
 	return err
 }
 
 func (nh *notesHandler) deleteNote(ctx context.Context, id int) error {
-	_, err := nh.db.ExecContext(ctx, legacyconversions.RiskilyAssumeTrustedSQL(`DELETE FROM notes WHERE id = `+strconv.Itoa(id)))
+	_, err := nh.db.ExecContext(ctx, sql.New(`DELETE FROM notes WHERE id = ?;`), id)
 	return err
 }
 
